@@ -159,22 +159,21 @@ shinyServer(function(input, output){
         table = "<table border=1>"
         #worker_table$last_submit = as.character(worker_table$last_submit)
         column_names = names(column_names)
-        for (i in 1:length(column_names)) {
+        for (i in 0:length(column_names)) {
           this_row =  column_names[i]
           table = paste(table, '<tr>', sep="\n")
-          if (i == 1) {
-            for (value in this_row) {
+          if (i == 0) {
               table = paste(table, '<td>', sep="\n")
               table = paste(table, paste("<b>",'Name', "</b>"),
                       sep="\n") # pastes value!
               table = paste(table, '</td>', sep="\n")
-            }
             table = paste(table, '<td>', sep="\n")
             table = paste(table, 'Edit?', sep="\n")  
             table = paste(table, '</td>', sep="\n")
             table = paste(table, '<td>', sep="\n")
             table = paste(table, 'New Name', sep="\n")
             table = paste(table, '</td>', sep="\n")
+            table = paste(table, '</tr>', sep="\n")
           } else {
             for (value_id in 1:length(this_row)) {
             value = this_row[value_id]

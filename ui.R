@@ -31,7 +31,7 @@ shinyUI(pageWithSidebar(
                          h4("***"),
                          dataTableOutput("new_file")),
                 tabPanel("Edit & Sort Names",
-                         h4("nothing here yet"),
+                         h4("Edit Column Names"),
                          htmlOutput("new_column_names"))
                 )
                ),
