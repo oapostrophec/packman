@@ -19,7 +19,8 @@ shinyUI(pageWithSidebar(
     fileInput("files", h4("Select a full report:"), multiple=T, accept = 
                c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
     h4("***"),
-    uiOutput("columnSelector")
+    uiOutput("columnSelector"),
+    htmlOutput("pacman")
     #uiOutput("jobSelector"),
     #uiOutput("cmlSelector")
   ), #close sidebarPanel
@@ -32,7 +33,10 @@ shinyUI(pageWithSidebar(
                          dataTableOutput("new_file")),
                 tabPanel("Edit & Sort Names",
                          h4("Edit Column Names"),
-                         htmlOutput("new_column_names"))
+                         htmlOutput("new_column_names"),
+                         br(),
+                         h4("Order Columns"),
+                         htmlOutput("new_column_order"))
                 )
                ),
       tabPanel("View File",
