@@ -19,20 +19,26 @@ shinyUI(pageWithSidebar(
     fileInput("files", h4("Select a full report:"), multiple=T, accept = 
                c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
     h4("***"),
-    uiOutput("sourceSelector"),
-    uiOutput("jobSelector"),
-    uiOutput("cmlSelector")
+    uiOutput("columnSelector")
+    #uiOutput("jobSelector"),
+    #uiOutput("cmlSelector")
   ), #close sidebarPanel
   mainPanel(
     tabsetPanel(
-      tabPanel("Column Names",
-               #htmlOutput("get_job_names"),
-               h4("***"),
-               dataTableOutput("new_file")
+      tabPanel("Columns",
+              tabsetPanel( 
+                tabPanel("View New File",
+                         h4("***"),
+                         dataTableOutput("new_file")),
+                tabPanel("Edit & Sort Names",
+                         h4("nothing here yet"),
+                         htmlOutput("new_column_names"))
+                )
                ),
       tabPanel("View File",
                h4("Shows first few rows of the uploaded file:"),
                dataTableOutput("sample_file"))
+     
     ) #close 1st tabset
   ) #close mainPanel
 )) #close shiny ui
