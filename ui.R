@@ -19,30 +19,39 @@ shinyUI(pageWithSidebar(
     fileInput("files", h4("Select a full report:"), multiple=T, accept = 
                c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
     h4("***"),
-    uiOutput("columnSelector"),
     htmlOutput("pacman")
     #uiOutput("jobSelector"),
     #uiOutput("cmlSelector")
   ), #close sidebarPanel
   mainPanel(
     tabsetPanel(
-      tabPanel("Columns",
+      tabPanel("Select Fields",
               tabsetPanel( 
-                tabPanel("View New File",
+                tabPanel("View Output Fields",
+                         uiOutput("columnSelector"),
                          h4("***"),
                          dataTableOutput("new_file")),
-                tabPanel("Edit & Sort Names",
-                         h4("Edit Column Names"),
-                         htmlOutput("new_column_names"),
-                         br(),
-                         h4("Order Columns"),
-                         htmlOutput("new_column_order"))
+                tabPanel("View Original File",
+                         dataTableOutput("sample_file"))
                 )
                ),
-      tabPanel("View File",
-               h4("Shows first few rows of the uploaded file:"),
-               dataTableOutput("sample_file"))
+      tabPanel("Column Ops",
+               tabsetPanel(
+                 tabPanel("Edit Column Names",
+                          htmlOutput("new_column_names")),
+                 tabPanel("Reorder Columns",
+                          htmlOutput("new_column_order"))
+                 )
+               ),
+      tabPanel("Row Ops",
+               h4("Nothing yet")),
+      tabPanel("Report Card",
+               h4("Summary Data Here...")),
+      tabPanel("Looks Legit",
+               h4("check nrows in output to source rows"),
+               h4("find & display missing units"),
+               h4("show source columns and compare to output cols"))
      
-    ) #close 1st tabset
+    ) #close main tabset
   ) #close mainPanel
 )) #close shiny ui

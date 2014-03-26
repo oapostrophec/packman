@@ -58,46 +58,46 @@ shinyServer(function(input, output){
     }
   })
   
-#   get_job_names <- reactive({
-#     if (is.null(input$files[1]) || is.na(input$files[1])) {
-#       # User has not uploaded a file yet
-#       return(NULL)
-#     } else {
-#       names = get_names()
-#       job_cols = grepl("(X_).+", names)
-#       job_cols_names = names[job_cols]
-#     }
-#   })
+  get_job_names <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      names = get_names()
+      job_cols = grepl("(X_).+", names)
+      job_cols_names = names[job_cols]
+    }
+  })
   
-#   get_cml_names <- reactive({
-#     if (is.null(input$files[1]) || is.na(input$files[1])) {
-#       # User has not uploaded a file yet
-#       return(NULL)
-#     } else {
-#       names = get_names()
-#       gold_cols = grepl(".(_gold)$", names)
-#       gold_cols_names = names[gold_cols]
-#       cml_names = gsub(pattern="(_gold)$", replacement="", gold_cols_names)
-#       cml_names
-#     }
-#   })
+  get_cml_names <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      names = get_names()
+      gold_cols = grepl(".(_gold)$", names)
+      gold_cols_names = names[gold_cols]
+      cml_names = gsub(pattern="(_gold)$", replacement="", gold_cols_names)
+      cml_names
+    }
+  })
   
-#   get_source_names <- reactive ({
-#     if (is.null(input$files[1]) || is.na(input$files[1])) {
-#       # User has not uploaded a file yet
-#       return(NULL)
-#     } else {
-#       all_names = get_names()
-#       gold_cols = grepl(".(_gold)$", all_names)
-#       gold_names = all_names[gold_cols]
-#       job_names = get_job_names()
-#       answer_names = get_cml_names()
-#     
-#       not_source_names = c(gold_names, job_names, answer_names)
-#     
-#      source_names = all_names[!(all_names %in% not_source_names)]
-#     }
-#   })
+  get_source_names <- reactive ({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      all_names = get_names()
+      gold_cols = grepl(".(_gold)$", all_names)
+      gold_names = all_names[gold_cols]
+      job_names = get_job_names()
+      answer_names = get_cml_names()
+    
+      not_source_names = c(gold_names, job_names, answer_names)
+    
+     source_names = all_names[!(all_names %in% not_source_names)]
+    }
+  })
   
   output$columnSelector <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -105,12 +105,18 @@ shinyServer(function(input, output){
       return(NULL)
     } else {
       columns = get_names()
-      
-      selectInput("cols_chosen", 
-                   "Select the source columns to be included in the output",
-                   choices = columns,
-                   multiple = T)
-      
+      source_cols = get_source_names()
+      cml_cols = get_cml_names()
+      default_choices = c('X_unit_id', source_cols, cml_cols)
+      not = grepl(pattern=".+(confidence)$", default_choices)
+      default_choices = default_choices[!(not)]
+        
+      selectInput("cols_chosen", "Select the source columns to be included in the output:",
+                  choices = columns,
+                  multiple = TRUE,
+                  selected = default_choices,
+                  selectize=TRUE)
+                  #options = list(plugins: "['drag_drop']"))
     }
   })
   
@@ -195,7 +201,7 @@ shinyServer(function(input, output){
             table = paste(table, '</td>', sep="\n")
           }
           table = paste(table, '<td>', sep="\n")
-          table = paste(table, '<input type="text" placeholder=', this_row[i], '>', sep="")
+          table = paste(table, '<input type="text" placeholder=', this_row[value_id], '>', sep="")
           table = paste(table, '</td>', sep="\n")
         }
         table = paste(table, '</tr>', sep="\n")
