@@ -110,8 +110,12 @@ shinyServer(function(input, output){
       default_choices = c('X_unit_id', source_cols, cml_cols)
       not = grepl(pattern=".+(confidence)$", default_choices)
       default_choices = default_choices[!(not)]
+      
+      #print("line 114")
+      #print(default_choices)
         
-      selectInput("cols_chosen", "Select the source columns to be included in the output:",
+      selectInput("cols_chosen", 
+                  "Select the columns to be included in the output (enter them in the order you want):",
                   choices = columns,
                   multiple = TRUE,
                   selected = default_choices,
@@ -119,44 +123,13 @@ shinyServer(function(input, output){
                   #options = list(plugins: "['drag_drop']"))
     }
   })
-  
-#   output$jobSelector <- renderUI({
-#     if (is.null(input$files[1]) || is.na(input$files[1])) {
-#       # User has not uploaded a file yet
-#       return(NULL)
-#     } else {
-#       columns = get_job_names()
-#       
-#       selectInput("job_cols_chosen", 
-#                   "Select the job info columns to be included in the output",
-#                   choices = columns,
-#                   multiple = T)
-#   
-#     }
-#   })
-#   
-#   output$cmlSelector <- renderUI({
-#     if (is.null(input$files[1]) || is.na(input$files[1])) {
-#       # User has not uploaded a file yet
-#       return(NULL)
-#     } else {
-#       columns = get_cml_names()
-#       
-#       selectInput("cml_cols_chosen", 
-#                   "Select the cml columns to be included in the output",
-#                   choices = columns,
-#                   multiple = T)
-#       
-#     }
-#   })
-  
+    
   output$sample_file <- renderDataTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
       table = full()
-      #table = head(table)
       table
     }
   })
@@ -189,7 +162,8 @@ shinyServer(function(input, output){
             table = paste(table, '</td>', sep="\n")
             table = paste(table, '<td>', sep="\n")
             table = 
-              paste(table, "&nbsp;&nbsp;", '<button class="btn btn-info action-button shiny-bound-input" data-toggle="button" id="get', 
+              paste(table, "&nbsp;&nbsp;", 
+                    '<button class="btn btn-info action-button shiny-bound-input" data-toggle="button" id="get', 
                     this_row[i], 
                     '" type="button">Submit</button>' , sep="")
             table = paste(table, '</td>', sep="\n")
@@ -201,7 +175,9 @@ shinyServer(function(input, output){
             table = paste(table, '</td>', sep="\n")
           }
           table = paste(table, '<td>', sep="\n")
-          table = paste(table, '<input type="text" placeholder=', this_row[value_id], '>', sep="")
+          table = paste(table, '<input id=', this_row[value_id],
+                  ' type="text" value="', this_row[value_id], 
+                  '" class="shiny-bound-input">', sep="")
           table = paste(table, '</td>', sep="\n")
         }
         table = paste(table, '</tr>', sep="\n")
@@ -213,70 +189,42 @@ shinyServer(function(input, output){
       }
     }
   })
-
-output$new_column_order <- renderText({
-  if (is.null(input$files[1]) || is.na(input$files[1])) {
-    # User has not uploaded a file yet
-    return(NULL)
-  } else {
-    column_names=new_file_columns()
-    if (!(is.null(column_names))) {
-      #job_id = job_id()
-      table = "<table border=1>"
-      #worker_table$last_submit = as.character(worker_table$last_submit)
-      column_names = names(column_names)
-      for (i in 0:(length(column_names) +1)) {
-        this_row =  column_names[i]
-        table = paste(table, '<tr>', sep="\n")
-        if (i == 0) {
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table, paste("<b>", "&nbsp;", "Index", "&nbsp;&nbsp;", "</b>"),
-                        sep="\n") # pastes value!
-          table = paste(table, '</td>', sep="\n")
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table, 'Name', sep="\n")  
-          table = paste(table, '</td>', sep="\n")
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table, 'New Index', sep="\n")
-          table = paste(table, '</td>', sep="\n")
-        } else if(i == (length(column_names) + 1)) {
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table,'<b>', 'Submit Changes', '</b>', sep="\n")  
-          table = paste(table, '</td>', sep="\n")
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table, '', sep="\n")  
-          table = paste(table, '</td>', sep="\n")
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table, '&nbsp;&nbsp;', '<button class="btn btn-info action-button shiny-bound-input" data-toggle="button" id="get', 
-                        this_row[i], '" type="button">Submit</button>',
-                        sep="")
-          table = paste(table, '</td>', sep="\n")
-        } 
-        else {
-          for (value_id in 1:length(this_row)) {
-            value = this_row[value_id]
-            table = paste(table, '<td>', sep="\n")
-            table = paste(table, "&nbsp;", i, sep="\n") # pastes value!
-            table = paste(table, '</td>', sep="\n")
-            
-            table = paste(table, '<td>', sep="\n")
-            table = paste(table, '&nbsp;', this_row[value_id], '&nbsp;', sep="")
-            table = paste(table, '</td>', sep="\n")
-            
-            table = paste(table, '<td>', sep="\n")
-            table = table = paste(table, '<input type="text" placeholder=', i, '>', sep="")
-            table = paste(table, '</td>', sep="\n")
-          }
+  
+  rename_columns <- reactive({
+      if (is.null(input$files[1]) || is.na(input$files[1])) {
+        # User has not uploaded a file yet
+        return(NULL)
+      } else {
+        file = new_file_columns()
+      
+        names = names(file)
+        #new_file <- data.frame()
+        #names[1] = as.character(names[1])
+        
+        for(i in 1:length(names)){
+          new_name = input[[paste(names[i])]]
+                    
+          colnames(file)[i] <- new_name
+          print("updating name....")
+          print(names(file))
         }
-        table = paste(table, '</tr>', sep="\n")
+        
+        print("made it through! line 212")
+        print(head(file))
+        file
+      
       }
-      table = paste(table,"</table>", sep="\n")
-      paste(table)
+  })
+
+  output$changedNames <- renderTable({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
     } else {
-      paste("<b>No data to see here. Make sure you selected at least 2 columns in the previous tab.</b>")
+      output = rename_columns()
+      output
     }
-  }
-})
+  })
   
   new_file_columns <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -284,14 +232,9 @@ output$new_column_order <- renderText({
       return(NULL)
     } else {
       old_file = full()
-      
       columns = input$cols_chosen
-      #jobs_columns = input$jobs_cols_chosen
-      #cml_columns = input$cml_cols_chosen
-      
-      #combined = c(source_columns, jobs_columns, cml_columns)
-      
-      new_file = old_file[,(names(old_file) %in% columns)]
+  
+      new_file = old_file[,(columns)]
       new_file
     }
   })
@@ -307,27 +250,4 @@ output$new_column_order <- renderText({
   })
   
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
