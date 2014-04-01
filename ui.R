@@ -23,35 +23,53 @@ shinyUI(pageWithSidebar(
   ), #close sidebarPanel
   mainPanel(
       tabsetPanel(
-        tabPanel("Column Ops",
+        tabPanel("Operations",
                  tabsetPanel(
                    tabPanel("Reorder Columns",
-                           uiOutput("columnSelector"),
-                           br(),
-                           br(),
-                           br(),
-                           br(),
-                           dataTableOutput("new_file")),
-                   tabPanel("Edit Column Names",
-                           htmlOutput("new_column_names")),
-                   tabPanel("New Columns:",
-                           uiOutput("changedNames")
+                            actionButton("get_reorder", "Submit?"),
+                            uiOutput("columnSelector"),
+                            tableOutput("new_file")),
+                   tabPanel("Rename Columns",
+                            htmlOutput("new_column_names"),
+                            actionButton("get_rename", "Submit?")),
+                   tabPanel("Row Data Cleanup",
+                            actionButton("get_clean", "Submit?"),
+                            h5("Select cells for proper casing"),
+                            uiOutput("rowProperCase"),
+                            uiOutput("showPropers")),
+                   tabPanel("Row Data Dedupe",
+                            uiOutput("rowDedupeKey"),
+                            actionButton("get_dedupe", "Submit?")),
+                   tabPanel("Built File:",
+                           uiOutput("editedFile"),
+                           tags$style(type="text/css", ".shiny-datatable-output { overflow: scroll; }")
                            )
                  )),
-        tabPanel("Row Ops",
+        tabPanel("Merge with Source",
+                 fileInput("source_file", h4("Upload a job source file:"), multiple=F, accept = 
+                             c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
                  tabsetPanel(
-                   tabPanel("Data Cleanup"),
-                   tabPanel("Data Dedupe")
-                   )),
+                   tabPanel("Missing Units?",
+                            p("Missing Units"),
+                            p(strong("Warning:"),
+                            span("Make sure that some source column names and agg column names overlap! We use these to make a key.",
+                                 style="color:red")),
+                            dataTableOutput("missingUnits")
+                            ),
+                   tabPanel("Source Viewer",
+                   dataTableOutput("sourceFile"))
+                 )),
         tabPanel("Report Card",
-                 h4("Summary Data Here...")),
-        tabPanel("Looks Legit",
-                 h4("check nrows in output to source rows"),
-                 h4("find & display missing units"),
-                 h4("show source columns and compare to output cols")),
+                 tabsetPanel(
+                   tabPanel("Summary",
+                            h4("Summary Data Here..."),
+                            htmlOutput("createReportCard")),
+                   tabPanel("View Low Confidence Units",
+                            dataTableOutput("displayLowUnits"))
+                 )),
         tabPanel("View Original File",
                  dataTableOutput("sample_file"),
-                 tags$style(type="text/css", ".shiny-bound-output { overflow: scroll; }")
+                 tags$style(type="text/css", ".data { overflow: scroll; }")
                  )
     ) #close overall tabset
   ) #close mainPanel

@@ -1,6 +1,6 @@
 ##Packman Server
 ##initialized March 24, 2014
-##Takes in full report, cleans aggregations
+##Takes in agg_file report, cleans aggregations
 ## makes it client facing.
 
 require('shiny')
@@ -9,10 +9,16 @@ require('data.table')
 require('plyr')
 require('devtools')
 require('stringr')
+require('reshape2')
+
+source('proper_case.R')
+source('rename_columns.R')
+source('reorder_columns.R')
+source('create_hash_key.R')
 
 options(stringsAsFactors = F)
 options(shiny.maxRequestSize=150*1024^2)
-
+options(scipen=999)
 shinyServer(function(input, output){
   
   output$pacman <- renderText ({
@@ -21,7 +27,7 @@ shinyServer(function(input, output){
     paste(html_image)
   })
   
-  full <- reactive({
+  agg_file <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
@@ -34,26 +40,49 @@ shinyServer(function(input, output){
       for (i in 1:length(split_ids)){
         split_ids[i] = gsub(split_ids[i], pattern=" ", replacement="")
       }
+      
       ##need to figure out how to grab multiple files from s3 and store.
       #
       #
       #
       
       inFile <- input$files
-      full = read.csv(inFile$datapath, na.strings="NaN", stringsAsFactors=FALSE)
-      #full$X_created_at = as.POSIXct(full$X_created_at,
+      agg_file = read.csv(inFile$datapath, na.strings="NaN", stringsAsFactors=FALSE)
+      #agg_file$X_created_at = as.POSIXct(agg_file$X_created_at,
       #                               format='%m/%d/%Y %H:%M:%S')
-      return(full)
+      return(agg_file)
     }
   })
+  
+  source_file <- reactive({
+    if(is.null(input$source_file[1]) || is.na(input$source_file[1])){
+      return(NULL) 
+    } else{
+      
+      inSource <- input$source_file
+      source_file = read.csv(inSource$datapath, na.strings="NaN", stringsAsFactors=FALSE)
+      return(source_file)
+      
+    }
+  })
+  
+  output$sourceFile <- renderDataTable({
+    if(is.null(input$source_file[1]) || is.na(input$source_file[1])){
+      return(NULL) 
+    } else{
+      output = source_file()
+      output
+    }
+  })
+
   
   get_names <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      full = full()
-      names = names(full)
+      agg_file = agg_file()
+      names = names(agg_file)
       names
     }
   })
@@ -96,7 +125,67 @@ shinyServer(function(input, output){
       not_source_names = c(gold_names, job_names, answer_names)
     
      source_names = all_names[!(all_names %in% not_source_names)]
+     drop = grepl(pattern=".+(confidence)", source_names)
+     
+     source_names = source_names[!(drop)]
+     
     }
+  })
+  
+  output$rowProperCase <- renderUI({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_rename == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      file = col_rename()
+      columns = names(file)
+      
+      selectInput("propers_chosen",
+                  "Select the cells that should be proper cased",
+                  choices = columns,
+                  multiple=TRUE,
+                  selectize = TRUE)
+      
+    }
+  })
+  
+  output$urlFix <- renderUI({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      columns = get_names()
+      
+      selectInput("webs_chosen",
+                  "Select the url cells that should be standardized",
+                  choices = columns,
+                  multiple=TRUE,
+                  selectize = TRUE)
+    
+    }
+  })
+  
+  output$rowDedupeKey <- renderUI({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      columns = row_proper_case()
+      columns = names(columns)
+      default_cols = get_source_names()
+      
+      if (length(default_cols > 3)){
+        default_cols = default_cols[1:3]
+      }
+    
+      selectInput("key_chosen",
+                  "Select the columns we should use to create a key for row deduplification",
+                  choices = columns,
+                  multiple=TRUE,
+                  selected = default_cols,
+                  selectize = TRUE)
+    
+      }
   })
   
   output$columnSelector <- renderUI({
@@ -108,19 +197,13 @@ shinyServer(function(input, output){
       source_cols = get_source_names()
       cml_cols = get_cml_names()
       default_choices = c('X_unit_id', source_cols, cml_cols)
-      not = grepl(pattern=".+(confidence)$", default_choices)
-      default_choices = default_choices[!(not)]
-      
-      #print("line 114")
-      #print(default_choices)
         
       selectInput("cols_chosen", 
                   "Select the columns to be included in the output (enter them in the order you want):",
                   choices = columns,
                   multiple = TRUE,
                   selected = default_choices,
-                  selectize=TRUE)
-                  #options = list(plugins: "['drag_drop']"))
+                  selectize = TRUE)
     }
   })
     
@@ -129,7 +212,7 @@ shinyServer(function(input, output){
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      table = full()
+      table = agg_file()
       table
     }
   })
@@ -139,13 +222,13 @@ shinyServer(function(input, output){
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      column_names=new_file_columns()
+      column_names=col_rename()
       if (!(is.null(column_names))) {
         #job_id = job_id()
         table = "<table border=1>"
         #worker_table$last_submit = as.character(worker_table$last_submit)
         column_names = names(column_names)
-        for (i in 0:(length(column_names)+1)) {
+        for (i in 0:length(column_names)) {
           this_row =  column_names[i]
           table = paste(table, '<tr>', sep="\n")
           if (i == 0) {
@@ -155,17 +238,6 @@ shinyServer(function(input, output){
             table = paste(table, '</td>', sep="\n")
             table = paste(table, '<td>', sep="\n")
             table = paste(table, 'New Name', sep="\n")  
-            table = paste(table, '</td>', sep="\n")
-          } else if (i == (length(column_names)+1)){
-            table = paste(table, '<td>', sep="\n")
-            table = paste(table, paste("<b>", "&nbsp;", "Submit Changes?", "</b>"), sep="\n")
-            table = paste(table, '</td>', sep="\n")
-            table = paste(table, '<td>', sep="\n")
-            table = 
-              paste(table, "&nbsp;&nbsp;", 
-                    '<button class="btn btn-info action-button shiny-bound-input" data-toggle="button" id="get', 
-                    this_row[i], 
-                    '" type="button">Submit</button>' , sep="")
             table = paste(table, '</td>', sep="\n")
           } else {
             for (value_id in 1:length(this_row)) {
@@ -188,64 +260,227 @@ shinyServer(function(input, output){
         paste("<b>No data to see here. Make sure you selected at least 2 columns in the previous tab.</b>")
       }
     }
-  })
+  })  
   
-  rename_columns <- reactive({
-      if (is.null(input$files[1]) || is.na(input$files[1])) {
-        # User has not uploaded a file yet
-        return(NULL)
-      } else {
-        file = new_file_columns()
-      
-        names = names(file)
-        #new_file <- data.frame()
-        #names[1] = as.character(names[1])
-        
-        for(i in 1:length(names)){
-          new_name = input[[paste(names[i])]]
-                    
-          colnames(file)[i] <- new_name
-          print("updating name....")
-          print(names(file))
-        }
-        
-        print("made it through! line 212")
-        print(head(file))
-        file
-      
-      }
-  })
-
-  output$changedNames <- renderTable({
+ output$showPropers <- renderTable({
+   if (is.null(input$files[1]) || is.na(input$files[1])) {
+     # User has not uploaded a file yet
+     return(NULL)
+   } else {
+     output = row_proper_case()
+     output = head(output)
+     output
+   }
+ })
+  
+  output$editedFile <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      output = rename_columns()
+      output = row_dedupe()
       output
     }
   })
   
-  new_file_columns <- reactive({
+  
+  output$new_file <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      old_file = full()
-      columns = input$cols_chosen
-  
-      new_file = old_file[,(columns)]
-      new_file
+      table = col_reorder_drop()
+      table
     }
   })
   
-  output$new_file <- renderDataTable({
+  find_missing_units <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || is.null(input$source_file[1]) || is.na(input$source_file[1])){
+      return(NULL)
+    } else {
+      source_file = source_file()
+      agg_file = agg_file()
+      
+      source_names = names(source_file)
+      agg_names = names(agg_file)
+      
+      key_names = intersect(source_names, agg_names)
+      
+      if (!is.null(key_names)){
+      source_file$source_hash = create_hash_key(source_file, key_names)
+     #   apply(source_file[, key_names], 1, function(x) paste(x,collapse="\t"))
+      
+      agg_file$agg_hash = create_hash_key(agg_file, key_names)
+    #    apply(agg_file[, key_names], 1, function(x) paste(x,collapse="\t"))
+    
+      missing = agg_file[!(agg_file$agg_hash %in% source_file$source_hash),]
+      }
+      
+    }
+  })
+  
+  output$missingUnits <- renderDataTable({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || is.null(input$source_file[1]) || is.na(input$source_file[1])){
+      return(NULL)
+    } else {
+      table = find_missing_units()
+      table  
+    }
+  })
+  
+
+##Step 1
+  col_reorder_drop <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      table = new_file_columns()
-      table
+      change_file = agg_file()  
+      reorder_cols_input = input$cols_chosen
+    
+      if(!(is.null(reorder_cols_input))){
+        change_file = reorder_columns(change_file, reorder_cols_input)
+        change_file
+      }
+      
+      change_file  
+    }
+  })
+
+###Step 2
+  col_rename <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = col_reorder_drop()
+      names = names(change_file)
+      update_names = {}
+      
+      for(i in 1:length(names)){
+        new_name = input[[paste(names[i])]]
+        update_names[i] <- new_name
+      }
+      
+      if(input$get_rename != 0){
+        colnames(change_file) <- update_names
+      }
+      change_file
+    } 
+  })
+
+##Step 3
+  row_proper_case <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_rename == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = col_rename()
+      proper_input = input$propers_chosen
+      
+      if(!(is.null(proper_input))){
+        change_file = proper_case(change_file, proper_input)
+        change_file
+      }  
+      change_file
+    }
+  })
+
+##Step 4
+  row_dedupe <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = row_proper_case()
+      key = input$key_chosen
+     
+      
+      if(!(is.null(key))){
+        change_file$hash_key = create_hash_key(change_file, key)
+        dup_lists = duplicated(change_file$hash_key)
+        if(!(is.null(dup_lists))){
+        change_file = change_file[!(dup_lists),]
+        }
+      }
+      change_file
+    }
+  })
+
+  find_low_conf_units <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      file = agg_file()
+      names = get_names()
+    
+      conf_index = grepl(names, pattern=".+(confidence)$")
+      conf_columns = file[,conf_index]
+      new_file = file[conf_columns < .4,]
+      new_file
+    }     
+  })
+
+  output$displayLowUnits <- renderDataTable({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      output = find_low_conf_units()
+      output
+    }
+  })
+
+  build_report_card <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      file = agg_file()
+      names = get_cml_names()
+      
+      responses = lapply(names, function(x) {
+        responses = table(file[,names(file)==x])
+        responses/sum(responses)
+      })
+     
+      responses
+    }
+  })
+
+  output$createReportCard <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      table = build_report_card()
+      table = head(table)
+      View(table)
+      html_table = "<table border=1>"
+      table = rbind(names(table), table)
+      for(i in 1:nrow(table)){
+        this_row = table[i,]
+        html_table = paste(html_table, '<tr>', sep="\n")
+        if (i == 1) {
+          for (value in this_row) {
+            html_table = paste(html_table, '<td>', sep="\n")
+            html_table = paste(html_table, paste("<b>", value, "</b>"),
+                               sep="\n")
+            html_table = paste(html_table, '</td>', sep="\n")
+          }
+        } else {
+          for (value_id in 1:length(this_row)) {
+            value = this_row[value_id]
+            html_table = paste(html_table, '<td>', sep="\n")
+            html_table = paste(html_table, value, "&nbsp;&nbsp;", sep="\n")
+            html_table = paste(html_table, '</td>', sep="\n")
+          }
+        }
+        html_table = paste(html_table, '</tr>', sep="\n")
+      } 
+      html_table = paste(html_table,"</table>", sep="\n")
+      paste(html_table)
     }
   })
   
