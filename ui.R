@@ -1,6 +1,6 @@
 ##Packman UI
 ##initialized March 24, 2014
-##Takes in full report, cleans aggregations
+##Takes in a report, cleans aggregations
 ## makes it client facing.
 
 require('shiny')
@@ -15,34 +15,40 @@ shinyUI(pageWithSidebar(
   headerPanel("Packman"),
   sidebarPanel(
     textInput("job_id", h4("Enter a Job ID or IDs"), 0),
-    p("separate multiple job ids with a comma ,"),
-    fileInput("files", h4("Select a full report:"), multiple=T, accept = 
+    br(),
+    span(strong("separate multiple job ids with a comma ,"), style="color:blue"),
+    fileInput("files", h4("Select an agg report:"), multiple=T, accept = 
                c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
     h4("***"),
+    h5("Complete the step by step submissions under the numerated tab. Once you've completed that you
+       can analyze and download the final product under the Download Results tab."),
+    htmlOutput("summaryMessage"),
     htmlOutput("pacman")
   ), #close sidebarPanel
   mainPanel(
       tabsetPanel(
         tabPanel("Operations",
                  tabsetPanel(
-                   tabPanel("Reorder Columns",
+                   tabPanel("1. Reorder Columns",
                             actionButton("get_reorder", "Submit?"),
                             uiOutput("columnSelector"),
-                            tableOutput("new_file")),
-                   tabPanel("Row Data Cleanup",
+                            tableOutput("reorderTabTable")),
+                   tabPanel("2. Row Data Cleanup",
                             actionButton("get_clean", "Submit?"),
                             uiOutput("rowProperCase"),
-                            uiOutput("showPropers"),
-                            htmlOutput("showPropsWarning")),
-                   tabPanel("Row Data Dedupe",
+                            uiOutput("dataCleanTabTable"),
+                            htmlOutput("dataCleanTabWarning")),
+                   tabPanel("3. Row Data Dedupe",
                             uiOutput("rowDedupeKey"),
-                            actionButton("get_dedupe", "Submit?")),
-                   tabPanel("Rename Columns",
-                            htmlOutput("new_column_names"),
+                            actionButton("get_dedupe", "Submit?"),
+                            htmlOutput("dedupeTabWarning"),
+                            uiOutput("dedupeTabTable")),
+                   tabPanel("4. Rename Columns",
+                            htmlOutput("renameTabTable"),
                             actionButton("get_rename", "Submit?")),
-                   tabPanel("Built File:",
-                           htmlOutput("editFileWarning"),
-                           uiOutput("editedFile"),
+                   tabPanel("5. View Built File:",
+                           htmlOutput("builtTabWarning"),
+                           uiOutput("builtTabTable"),
                            tags$style(type="text/css", ".shiny-datatable-output { overflow: scroll; }")
                            )
                  )),
@@ -61,18 +67,19 @@ shinyUI(pageWithSidebar(
                  fileInput("source_file", h4("Upload a job source file:"), multiple=F, accept = 
                              c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
                  tabsetPanel(
-                   tabPanel("Missing Units?",
-                            p("Missing Units"),
+                   tabPanel("Missing Units",
                             p(strong("Warning:"),
                             span("Make sure that some source column names and agg column names overlap! We use these to make a key.",
                                  style="color:red")),
+                            htmlOutput("missingUnitsText"),
+                            br(),
                             dataTableOutput("missingUnits")
                             ),
                    tabPanel("Source Viewer",
                    dataTableOutput("sourceFile"))
                  )),
         tabPanel("View Original File",
-                 dataTableOutput("sample_file"),
+                 dataTableOutput("originalFileTabTable"),
                  tags$style(type="text/css", ".data { overflow: scroll; }")
                  )
     ) #close overall tabset

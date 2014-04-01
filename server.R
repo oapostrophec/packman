@@ -1,6 +1,6 @@
 ##Packman Server
 ##initialized March 24, 2014
-##Takes in agg_file report, cleans aggregations
+##Takes in a report, cleans aggregations
 ## makes it client facing.
 
 require('shiny')
@@ -27,6 +27,33 @@ shinyServer(function(input, output){
     paste(html_image)
   })
   
+  output$summaryMessage <- renderText({
+    if ((is.null(input$files[1]) || is.na(input$files[1])) && input$job_id==0) {
+      # User has not uploaded a file yet
+      return("<p>You have not uploaded any files yet</p>")
+    } else {
+      agg = agg_file()
+      num_gold_units = length(unique(agg$X_unit_id[agg$X_golden=='true']))
+      num_nongold_units = length(unique(agg$X_unit_id)) - num_gold_units
+      cols = names(agg)
+      num_cols = length(cols)
+      cols_list = list(cols)
+      
+      column_names = paste("<p>The following are all of the columns in your file: <br>", 
+                           cols_list, "</p>", sep="")
+      
+      column_warning = paste("<p>Note that the job columns like, _unit_id are appended with an X 
+                             in the app. Like so: X_unit_id</p>")
+      
+      overall_message = paste("<p>The report you uploaded has:<br>",
+                              num_gold_units, " gold units,<br>",
+                              num_nongold_units, " ordinary units<br>",
+                              num_cols, " column headers.<br>",
+                              "</p>", sep="")
+      paste(overall_message, column_names, column_warning, sep="<br>")
+    } 
+  })
+  
   agg_file <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -48,8 +75,7 @@ shinyServer(function(input, output){
       
       inFile <- input$files
       agg_file = read.csv(inFile$datapath, na.strings="NaN", stringsAsFactors=FALSE)
-      #agg_file$X_created_at = as.POSIXct(agg_file$X_created_at,
-      #                               format='%m/%d/%Y %H:%M:%S')
+      
       return(agg_file)
     }
   })
@@ -132,6 +158,47 @@ shinyServer(function(input, output){
     }
   })
   
+##Step 1 - Reorder and Drop Columns
+##Selector Outputs
+  output$columnSelector <- renderUI({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      columns = get_names()
+      source_cols = get_source_names()
+      cml_cols = get_cml_names()
+      default_choices = c('X_unit_id', source_cols, cml_cols)
+    
+      selectInput("cols_chosen", 
+                  "Select the columns to be included in the output (enter them in the order you want):",
+                  choices = columns,
+                  multiple = TRUE,
+                  selected = default_choices,
+                  selectize = TRUE)
+    }
+  })
+
+ ##Reorder Columns
+  col_reorder_drop <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = agg_file()  
+      reorder_cols_input = input$cols_chosen
+      
+      if(!(is.null(reorder_cols_input))){
+        change_file = reorder_columns(change_file, reorder_cols_input)
+        change_file
+      }
+      
+      change_file  
+    }
+  })
+  
+##Step 2 - Data Clean
+ ##Selector Outputs
   output$rowProperCase <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
       # User has not uploaded a file yet
@@ -161,10 +228,29 @@ shinyServer(function(input, output){
                   choices = columns,
                   multiple=TRUE,
                   selectize = TRUE)
-    
+      
     }
   })
   
+ ##Date Clean - titlecase
+  row_proper_case <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = col_reorder_drop()
+      proper_input = input$propers_chosen
+      
+      if(!(is.null(proper_input))){
+        change_file = proper_case(change_file, proper_input)
+        change_file
+      }  
+      change_file
+    }
+  })
+  
+##Step 3 - Dedupe rows
+ ##Selector Outputs
   output$rowDedupeKey <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -173,7 +259,7 @@ shinyServer(function(input, output){
       columns = row_proper_case()
       columns = names(columns)
       default_cols = get_source_names()
-      
+    
       if (length(default_cols > 3)){
         default_cols = default_cols[1:3]
       }
@@ -184,40 +270,140 @@ shinyServer(function(input, output){
                   multiple=TRUE,
                   selected = default_cols,
                   selectize = TRUE)
-    
-      }
-  })
-  
-  output$columnSelector <- renderUI({
-    if (is.null(input$files[1]) || is.na(input$files[1])) {
-      # User has not uploaded a file yet
-      return(NULL)
-    } else {
-      columns = get_names()
-      source_cols = get_source_names()
-      cml_cols = get_cml_names()
-      default_choices = c('X_unit_id', source_cols, cml_cols)
-        
-      selectInput("cols_chosen", 
-                  "Select the columns to be included in the output (enter them in the order you want):",
-                  choices = columns,
-                  multiple = TRUE,
-                  selected = default_choices,
-                  selectize = TRUE)
+      
     }
   })
-    
-  output$sample_file <- renderDataTable({
+
+  ##Dedupe Rows
+  row_dedupe <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = row_proper_case()
+      key = input$key_chosen
+      
+      
+      if(!(is.null(key))){
+        change_file$hash_key = create_hash_key(change_file, key)
+        dup_lists = duplicated(change_file$hash_key)
+        if(!(is.null(dup_lists))){
+          change_file = change_file[!(dup_lists),]
+        }
+        
+        change_file = change_file[,names(change_file)!= "hash_key"]
+        
+      }
+      change_file
+    }
+  })
+  
+  ###Step 4
+  col_rename <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_dedupe == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      change_file = row_dedupe()
+      names = names(change_file)
+      update_names = {}
+      
+      for(i in 1:length(names)){
+        new_name = input[[paste(names[i])]]
+        update_names[i] <- new_name
+      }
+      
+      if(input$get_rename != 0){
+        colnames(change_file) <- update_names
+      }
+      change_file
+    } 
+  })
+
+##Displaying Table Outputs
+#Step 1 View
+  output$reorderTabTable <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      table = agg_file()
+      table = col_reorder_drop()
+    
+      if (nrow(table) > 15){
+        max_count = min(15, nrow(table))
+        table = table[1:max_count,]
+      }
       table
     }
   })
-  
-  output$new_column_names <- renderText({
+
+#Step 2 View
+  output$dataCleanTabTable <- renderTable({
+      if (is.null(input$files[1]) || is.na(input$files[1])) {
+        # User has not uploaded a file yet
+        return(NULL)
+      } else {
+        if(input$get_reorder != 0){
+          output = row_proper_case()
+          if (nrow(output) > 15){
+            max_count = min(15, nrow(output))
+            output = output[1:max_count,]
+          }
+          output
+        } else{
+          return(NULL)
+        }
+      }
+    })  
+
+  output$dataCleanTabWarning <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      if(input$get_reorder == 0){
+        paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Reorder Columns.</span>")
+      } else {
+        return(NULL) 
+      }
+    }
+  })
+
+#Step 3 View
+  output$dedupeTabTable <- renderTable ({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      table = row_proper_case()
+    
+      if(input$get_dedupe != 0){
+        table = row_dedupe()
+      }
+    
+      if(nrow(table)>15){
+        max_count = min(15, nrow(table))
+        table = table[1:max_count,]
+      }
+      table
+    }
+  })
+
+  output$dedupeTabWarning <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      if(input$get_clean == 0){
+        paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Row Data Cleanup.</span>")
+      } else {
+        return(NULL) 
+      }
+    } 
+  })
+
+#Step 4 View
+  output$renameTabTable <- renderText({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
@@ -261,40 +447,9 @@ shinyServer(function(input, output){
       }
     }
   })  
-  
- output$showPropers <- renderTable({
-   if (is.null(input$files[1]) || is.na(input$files[1])) {
-     # User has not uploaded a file yet
-     return(NULL)
-   } else {
-     if(input$get_reorder != 0){
-       output = row_proper_case()
-       if (nrow(output) > 15){
-         max_count = min(15, nrow(output))
-         output = output[1:max_count,]
-       }
-       
-       output
-     } else{
-       return(NULL)
-     }
-   }
- })
-  
- output$showPropsWarning <- renderText({
-   if (is.null(input$files[1]) || is.na(input$files[1])) {
-     # User has not uploaded a file yet
-     return(NULL)
-   } else {
-      if(input$get_reorder == 0){
-        paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Reorder Columns.</span>")
-      } else {
-       return(NULL) 
-      }
-   }
- })
- 
-  output$editedFile <- renderTable({
+   
+ #Built Tab View
+  output$builtTabTable <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
@@ -313,7 +468,7 @@ shinyServer(function(input, output){
     }
   })
   
- output$editFileWarning <- renderText({
+ output$builtTabWarning <- renderText({
    if (is.null(input$files[1]) || is.na(input$files[1])) {
      # User has not uploaded a file yet
      return(NULL)
@@ -325,21 +480,6 @@ shinyServer(function(input, output){
      }
    } 
  })
-  
-  output$new_file <- renderTable({
-    if (is.null(input$files[1]) || is.na(input$files[1])) {
-      # User has not uploaded a file yet
-      return(NULL)
-    } else {
-      table = col_reorder_drop()
-      
-      if (nrow(table) > 15){
-        max_count = min(15, nrow(table))
-        table = table[1:max_count,]
-      }
-      table
-    }
-  })
   
   find_missing_units <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || is.null(input$source_file[1]) || is.na(input$source_file[1])){
@@ -374,85 +514,36 @@ shinyServer(function(input, output){
       table  
     }
   })
-  
 
-##Step 1
-  col_reorder_drop <- reactive({
-    if (is.null(input$files[1]) || is.na(input$files[1])) {
-      # User has not uploaded a file yet
+  output$missingUnitsText <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || is.null(input$source_file[1]) || is.na(input$source_file[1])){
       return(NULL)
     } else {
-      change_file = agg_file()  
-      reorder_cols_input = input$cols_chosen
-    
-      if(!(is.null(reorder_cols_input))){
-        change_file = reorder_columns(change_file, reorder_cols_input)
-        change_file
+      missing = nrow(find_missing_units())
+      agg_file = nrow(agg_file())
+      source_file = nrow(source_file())
+      
+      if(agg_file == source_file){
+      message = paste("<div class=\"alerts alert-info\"><big>We did not detect in missing units. Source File:", source_file,
+                      "<br> Agg File:", agg_file, "</big></div>", sep=" ")
       }
       
-      change_file  
-    }
-  })
-
-##Step 2
-  row_proper_case <- reactive({
-    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
-      # User has not uploaded a file yet
-      return(NULL)
-    } else {
-      change_file = col_reorder_drop()
-      proper_input = input$propers_chosen
-      
-      if(!(is.null(proper_input))){
-        change_file = proper_case(change_file, proper_input)
-        change_file
-      }  
-      change_file
-    }
-  })
-
-##Step 3
-  row_dedupe <- reactive({
-    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
-      # User has not uploaded a file yet
-      return(NULL)
-    } else {
-      change_file = row_proper_case()
-      key = input$key_chosen
-     
-      
-      if(!(is.null(key))){
-        change_file$hash_key = create_hash_key(change_file, key)
-        dup_lists = duplicated(change_file$hash_key)
-        if(!(is.null(dup_lists))){
-        change_file = change_file[!(dup_lists),]
-        }
+      if(missing != 0){
+        message = paste("<div class=\"alerts alert-info\"><big>There are ", source_file, "total units in the source file.
+                        The agg file contains", agg_file, "total units. There are", missing,
+                          "units unaccounted for.</big></div>", sep=" ")
+      } 
+      else if(agg_file != source_file){
+        difference = abs(agg_file - source_file)
+        message = paste("<div class=\"alerts alert-info\"><big>We were unable to identify the missing units. However there
+                        is a numeric difference between the agg file and source file.
+                        <br> Make sure there is an overlap in header names before attempting any file merges.<br> Source File:", source_file,
+                        "<br> Agg File:", agg_file,"<br> Difference:", difference, "</big></div>", sep=" ") 
       }
-      change_file
+      
+      message
     }
   })
-
-###Step 4
-col_rename <- reactive({
-  if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_dedupe == 0) {
-    # User has not uploaded a file yet
-    return(NULL)
-  } else {
-    change_file = row_dedupe()
-    names = names(change_file)
-    update_names = {}
-    
-    for(i in 1:length(names)){
-      new_name = input[[paste(names[i])]]
-      update_names[i] <- new_name
-    }
-    
-    if(input$get_rename != 0){
-      colnames(change_file) <- update_names
-    }
-    change_file
-  } 
-})
 
   find_low_conf_units <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -538,6 +629,16 @@ col_rename <- reactive({
        write.csv(df, paste(file,sep=''), row.names=F, na="")
      }
    )
+
+  output$originalFileTabTable <- renderDataTable({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      table = agg_file()
+      table
+    }
+  })
 
 })
 
