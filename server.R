@@ -133,11 +133,11 @@ shinyServer(function(input, output){
   })
   
   output$rowProperCase <- renderUI({
-    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_rename == 0) {
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      file = col_rename()
+      file = col_reorder_drop()
       columns = names(file)
       
       selectInput("propers_chosen",
@@ -257,7 +257,7 @@ shinyServer(function(input, output){
       table = paste(table,"</table>", sep="\n")
       paste(table)
       } else {
-        paste("<b>No data to see here. Make sure you selected at least 2 columns in the previous tab.</b>")
+        paste("<span style=\"color:red\">No data to see here. Make sure you selected at least 2 columns in the previous tab and pressed the <u>Submit?</u> button.</span>")
       }
     }
   })  
@@ -267,22 +267,64 @@ shinyServer(function(input, output){
      # User has not uploaded a file yet
      return(NULL)
    } else {
-     output = row_proper_case()
-     output = head(output)
-     output
+     if(input$get_reorder != 0){
+       output = row_proper_case()
+       if (nrow(output) > 15){
+         max_count = min(15, nrow(output))
+         output = output[1:max_count,]
+       }
+       
+       output
+     } else{
+       return(NULL)
+     }
    }
  })
   
+ output$showPropsWarning <- renderText({
+   if (is.null(input$files[1]) || is.na(input$files[1])) {
+     # User has not uploaded a file yet
+     return(NULL)
+   } else {
+      if(input$get_reorder == 0){
+        paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Reorder Columns.</span>")
+      } else {
+       return(NULL) 
+      }
+   }
+ })
+ 
   output$editedFile <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      output = row_dedupe()
-      output
+      if (input$get_rename != 0){
+        output = col_rename()
+        #output = head(output)
+        if (nrow(output) > 15){
+          max_count = min(15, nrow(output))
+          output = output[1:max_count,]
+        }
+        output
+      } else{
+        return(NULL)
+      }
     }
   })
   
+ output$editFileWarning <- renderText({
+   if (is.null(input$files[1]) || is.na(input$files[1])) {
+     # User has not uploaded a file yet
+     return(NULL)
+   } else {
+     if(input$get_rename == 0){
+       paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Rename Columns.</span>")
+     } else {
+       return(NULL) 
+     }
+   } 
+ })
   
   output$new_file <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -290,6 +332,11 @@ shinyServer(function(input, output){
       return(NULL)
     } else {
       table = col_reorder_drop()
+      
+      if (nrow(table) > 15){
+        max_count = min(15, nrow(table))
+        table = table[1:max_count,]
+      }
       table
     }
   })
@@ -347,35 +394,13 @@ shinyServer(function(input, output){
     }
   })
 
-###Step 2
-  col_rename <- reactive({
+##Step 2
+  row_proper_case <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
       change_file = col_reorder_drop()
-      names = names(change_file)
-      update_names = {}
-      
-      for(i in 1:length(names)){
-        new_name = input[[paste(names[i])]]
-        update_names[i] <- new_name
-      }
-      
-      if(input$get_rename != 0){
-        colnames(change_file) <- update_names
-      }
-      change_file
-    } 
-  })
-
-##Step 3
-  row_proper_case <- reactive({
-    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_rename == 0) {
-      # User has not uploaded a file yet
-      return(NULL)
-    } else {
-      change_file = col_rename()
       proper_input = input$propers_chosen
       
       if(!(is.null(proper_input))){
@@ -386,7 +411,7 @@ shinyServer(function(input, output){
     }
   })
 
-##Step 4
+##Step 3
   row_dedupe <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
       # User has not uploaded a file yet
@@ -406,6 +431,28 @@ shinyServer(function(input, output){
       change_file
     }
   })
+
+###Step 4
+col_rename <- reactive({
+  if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_dedupe == 0) {
+    # User has not uploaded a file yet
+    return(NULL)
+  } else {
+    change_file = row_dedupe()
+    names = names(change_file)
+    update_names = {}
+    
+    for(i in 1:length(names)){
+      new_name = input[[paste(names[i])]]
+      update_names[i] <- new_name
+    }
+    
+    if(input$get_rename != 0){
+      colnames(change_file) <- update_names
+    }
+    change_file
+  } 
+})
 
   find_low_conf_units <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -456,7 +503,6 @@ shinyServer(function(input, output){
     } else {
       table = build_report_card()
       table = head(table)
-      View(table)
       html_table = "<table border=1>"
       table = rbind(names(table), table)
       for(i in 1:nrow(table)){
@@ -484,5 +530,14 @@ shinyServer(function(input, output){
     }
   })
   
+   output$downloadOutput <- downloadHandler(
+     
+     filename = function() { paste(input$download_name, '.csv', sep='') },
+     content = function(file) {
+       df=col_rename()
+       write.csv(df, paste(file,sep=''), row.names=F, na="")
+     }
+   )
+
 })
 

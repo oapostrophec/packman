@@ -29,23 +29,35 @@ shinyUI(pageWithSidebar(
                             actionButton("get_reorder", "Submit?"),
                             uiOutput("columnSelector"),
                             tableOutput("new_file")),
-                   tabPanel("Rename Columns",
-                            htmlOutput("new_column_names"),
-                            actionButton("get_rename", "Submit?")),
                    tabPanel("Row Data Cleanup",
                             actionButton("get_clean", "Submit?"),
-                            h5("Select cells for proper casing"),
                             uiOutput("rowProperCase"),
-                            uiOutput("showPropers")),
+                            uiOutput("showPropers"),
+                            htmlOutput("showPropsWarning")),
                    tabPanel("Row Data Dedupe",
                             uiOutput("rowDedupeKey"),
                             actionButton("get_dedupe", "Submit?")),
+                   tabPanel("Rename Columns",
+                            htmlOutput("new_column_names"),
+                            actionButton("get_rename", "Submit?")),
                    tabPanel("Built File:",
+                           htmlOutput("editFileWarning"),
                            uiOutput("editedFile"),
                            tags$style(type="text/css", ".shiny-datatable-output { overflow: scroll; }")
                            )
                  )),
-        tabPanel("Merge with Source",
+        tabPanel("Download Results",
+                 tabsetPanel(
+                   tabPanel("Summary",
+                            h4("Summary Data Here..."),
+                            htmlOutput("createReportCard"),
+                            textInput("download_name", "Name for the output file (uft-8 without the .csv)", "output"),
+                            br(),
+                            downloadButton('downloadOutput', 'Download Built File')),
+                   tabPanel("View Low Confidence Units",
+                            dataTableOutput("displayLowUnits"))
+                 )),
+        tabPanel("Compare to Source",
                  fileInput("source_file", h4("Upload a job source file:"), multiple=F, accept = 
                              c('text/csv', 'text/comma-separated-values,text/plain', '.csv')),
                  tabsetPanel(
@@ -58,14 +70,6 @@ shinyUI(pageWithSidebar(
                             ),
                    tabPanel("Source Viewer",
                    dataTableOutput("sourceFile"))
-                 )),
-        tabPanel("Report Card",
-                 tabsetPanel(
-                   tabPanel("Summary",
-                            h4("Summary Data Here..."),
-                            htmlOutput("createReportCard")),
-                   tabPanel("View Low Confidence Units",
-                            dataTableOutput("displayLowUnits"))
                  )),
         tabPanel("View Original File",
                  dataTableOutput("sample_file"),
