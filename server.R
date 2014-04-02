@@ -42,8 +42,8 @@ shinyServer(function(input, output){
       column_names = paste("<p>The following are all of the columns in your file: <br>", 
                            cols_list, "</p>", sep="")
       
-      column_warning = paste("<p>Note that the job columns like, _unit_id are appended with an X 
-                             in the app. Like so: X_unit_id</p>")
+      column_warning = paste("<p><b>Note that the job columns (like _unit_id) are appended with an X 
+                             in the app. Like so: X_unit_id</b></p>")
       
       overall_message = paste("<p>The report you uploaded has:<br>",
                               num_gold_units, " gold units,<br>",
@@ -100,7 +100,7 @@ shinyServer(function(input, output){
       output
     }
   })
-
+  
   
   get_names <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -147,19 +147,19 @@ shinyServer(function(input, output){
       gold_names = all_names[gold_cols]
       job_names = get_job_names()
       answer_names = get_cml_names()
-    
+      
       not_source_names = c(gold_names, job_names, answer_names)
-    
-     source_names = all_names[!(all_names %in% not_source_names)]
-     drop = grepl(pattern=".+(confidence)", source_names)
-     
-     source_names = source_names[!(drop)]
-     
+      
+      source_names = all_names[!(all_names %in% not_source_names)]
+      drop = grepl(pattern=".+(confidence)", source_names)
+      
+      source_names = source_names[!(drop)]
+      
     }
   })
   
-##Step 1 - Reorder and Drop Columns
-##Selector Outputs
+  ##Step 1 - Reorder and Drop Columns
+  ##Selector Outputs
   output$columnSelector <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -169,7 +169,7 @@ shinyServer(function(input, output){
       source_cols = get_source_names()
       cml_cols = get_cml_names()
       default_choices = c('X_unit_id', source_cols, cml_cols)
-    
+      
       selectInput("cols_chosen", 
                   "Select the columns to be included in the output (enter them in the order you want):",
                   choices = columns,
@@ -178,8 +178,8 @@ shinyServer(function(input, output){
                   selectize = TRUE)
     }
   })
-
- ##Reorder Columns
+  
+  ##Reorder Columns
   col_reorder_drop <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -197,8 +197,8 @@ shinyServer(function(input, output){
     }
   })
   
-##Step 2 - Data Clean
- ##Selector Outputs
+  ##Step 2 - Data Clean
+  ##Selector Outputs
   output$rowProperCase <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
       # User has not uploaded a file yet
@@ -232,7 +232,7 @@ shinyServer(function(input, output){
     }
   })
   
- ##Date Clean - titlecase
+  ##Date Clean - titlecase
   row_proper_case <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
       # User has not uploaded a file yet
@@ -249,8 +249,8 @@ shinyServer(function(input, output){
     }
   })
   
-##Step 3 - Dedupe rows
- ##Selector Outputs
+  ##Step 3 - Dedupe rows
+  ##Selector Outputs
   output$rowDedupeKey <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -259,11 +259,11 @@ shinyServer(function(input, output){
       columns = row_proper_case()
       columns = names(columns)
       default_cols = get_source_names()
-    
+      
       if (length(default_cols > 3)){
         default_cols = default_cols[1:3]
       }
-    
+      
       selectInput("key_chosen",
                   "Select the columns we should use to create a key for row deduplification",
                   choices = columns,
@@ -273,7 +273,7 @@ shinyServer(function(input, output){
       
     }
   })
-
+  
   ##Dedupe Rows
   row_dedupe <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
@@ -319,16 +319,16 @@ shinyServer(function(input, output){
       change_file
     } 
   })
-
-##Displaying Table Outputs
-#Step 1 View
+  
+  ##Displaying Table Outputs
+  #Step 1 View
   output$reorderTabTable <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
       table = col_reorder_drop()
-    
+      
       if (nrow(table) > 15){
         max_count = min(15, nrow(table))
         table = table[1:max_count,]
@@ -336,26 +336,26 @@ shinyServer(function(input, output){
       table
     }
   })
-
-#Step 2 View
+  
+  #Step 2 View
   output$dataCleanTabTable <- renderTable({
-      if (is.null(input$files[1]) || is.na(input$files[1])) {
-        # User has not uploaded a file yet
-        return(NULL)
-      } else {
-        if(input$get_reorder != 0){
-          output = row_proper_case()
-          if (nrow(output) > 15){
-            max_count = min(15, nrow(output))
-            output = output[1:max_count,]
-          }
-          output
-        } else{
-          return(NULL)
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      if(input$get_reorder != 0){
+        output = row_proper_case()
+        if (nrow(output) > 15){
+          max_count = min(15, nrow(output))
+          output = output[1:max_count,]
         }
+        output
+      } else{
+        return(NULL)
       }
-    })  
-
+    }
+  })  
+  
   output$dataCleanTabWarning <- renderText({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -368,19 +368,19 @@ shinyServer(function(input, output){
       }
     }
   })
-
-#Step 3 View
+  
+  #Step 3 View
   output$dedupeTabTable <- renderTable ({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_clean == 0) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
       table = row_proper_case()
-    
+      
       if(input$get_dedupe != 0){
         table = row_dedupe()
       }
-    
+      
       if(nrow(table)>15){
         max_count = min(15, nrow(table))
         table = table[1:max_count,]
@@ -388,7 +388,7 @@ shinyServer(function(input, output){
       table
     }
   })
-
+  
   output$dedupeTabWarning <- renderText({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -401,8 +401,8 @@ shinyServer(function(input, output){
       }
     } 
   })
-
-#Step 4 View
+  
+  #Step 4 View
   output$renameTabTable <- renderText({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -420,35 +420,35 @@ shinyServer(function(input, output){
           if (i == 0) {
             table = paste(table, '<td>', sep="\n")
             table = paste(table, paste("<b>",'Name', "</b>"),
-                    sep="\n") # pastes value!
+                          sep="\n") # pastes value!
             table = paste(table, '</td>', sep="\n")
             table = paste(table, '<td>', sep="\n")
             table = paste(table, 'New Name', sep="\n")  
             table = paste(table, '</td>', sep="\n")
           } else {
             for (value_id in 1:length(this_row)) {
-            value = this_row[value_id]
+              value = this_row[value_id]
+              table = paste(table, '<td>', sep="\n")
+              table = paste(table, "&nbsp;", value, "&nbsp;&nbsp;", sep="\n") # pastes value!
+              table = paste(table, '</td>', sep="\n")
+            }
             table = paste(table, '<td>', sep="\n")
-            table = paste(table, "&nbsp;", value, "&nbsp;&nbsp;", sep="\n") # pastes value!
+            table = paste(table, '<input id=', this_row[value_id],
+                          ' type="text" value="', this_row[value_id], 
+                          '" class="shiny-bound-input">', sep="")
             table = paste(table, '</td>', sep="\n")
           }
-          table = paste(table, '<td>', sep="\n")
-          table = paste(table, '<input id=', this_row[value_id],
-                  ' type="text" value="', this_row[value_id], 
-                  '" class="shiny-bound-input">', sep="")
-          table = paste(table, '</td>', sep="\n")
+          table = paste(table, '</tr>', sep="\n")
         }
-        table = paste(table, '</tr>', sep="\n")
-      }
-      table = paste(table,"</table>", sep="\n")
-      paste(table)
+        table = paste(table,"</table>", sep="\n")
+        paste(table)
       } else {
         paste("<span style=\"color:red\">No data to see here. Make sure you selected at least 2 columns in the previous tab and pressed the <u>Submit?</u> button.</span>")
       }
     }
   })  
-   
- #Built Tab View
+  
+  #Built Tab View
   output$builtTabTable <- renderTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -468,18 +468,18 @@ shinyServer(function(input, output){
     }
   })
   
- output$builtTabWarning <- renderText({
-   if (is.null(input$files[1]) || is.na(input$files[1])) {
-     # User has not uploaded a file yet
-     return(NULL)
-   } else {
-     if(input$get_rename == 0){
-       paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Rename Columns.</span>")
-     } else {
-       return(NULL) 
-     }
-   } 
- })
+  output$builtTabWarning <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      if(input$get_rename == 0){
+        paste("<span style=\"color:red\">We have not received any data on this page. Make sure to press the submit button in the previous tab, Rename Columns.</span>")
+      } else {
+        return(NULL) 
+      }
+    } 
+  })
   
   find_missing_units <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || is.null(input$source_file[1]) || is.na(input$source_file[1])){
@@ -494,13 +494,13 @@ shinyServer(function(input, output){
       key_names = intersect(source_names, agg_names)
       
       if (!is.null(key_names)){
-      source_file$source_hash = create_hash_key(source_file, key_names)
-     #   apply(source_file[, key_names], 1, function(x) paste(x,collapse="\t"))
-      
-      agg_file$agg_hash = create_hash_key(agg_file, key_names)
-    #    apply(agg_file[, key_names], 1, function(x) paste(x,collapse="\t"))
-    
-      missing = agg_file[!(agg_file$agg_hash %in% source_file$source_hash),]
+        source_file$source_hash = create_hash_key(source_file, key_names)
+        #   apply(source_file[, key_names], 1, function(x) paste(x,collapse="\t"))
+        
+        agg_file$agg_hash = create_hash_key(agg_file, key_names)
+        #    apply(agg_file[, key_names], 1, function(x) paste(x,collapse="\t"))
+        
+        missing = agg_file[!(agg_file$agg_hash %in% source_file$source_hash),]
       }
       
     }
@@ -514,7 +514,7 @@ shinyServer(function(input, output){
       table  
     }
   })
-
+  
   output$missingUnitsText <- renderText({
     if (is.null(input$files[1]) || is.na(input$files[1]) || is.null(input$source_file[1]) || is.na(input$source_file[1])){
       return(NULL)
@@ -524,14 +524,14 @@ shinyServer(function(input, output){
       source_file = nrow(source_file())
       
       if(agg_file == source_file){
-      message = paste("<div class=\"alerts alert-info\"><big>We did not detect in missing units. Source File:", source_file,
-                      "<br> Agg File:", agg_file, "</big></div>", sep=" ")
+        message = paste("<div class=\"alerts alert-info\"><big>We did not detect in missing units. Source File:", source_file,
+                        "<br> Agg File:", agg_file, "</big></div>", sep=" ")
       }
       
       if(missing != 0){
         message = paste("<div class=\"alerts alert-info\"><big>There are ", source_file, "total units in the source file.
                         The agg file contains", agg_file, "total units. There are", missing,
-                          "units unaccounted for.</big></div>", sep=" ")
+                        "units unaccounted for.</big></div>", sep=" ")
       } 
       else if(agg_file != source_file){
         difference = abs(agg_file - source_file)
@@ -544,7 +544,7 @@ shinyServer(function(input, output){
       message
     }
   })
-
+  
   find_low_conf_units <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -552,14 +552,14 @@ shinyServer(function(input, output){
     } else {
       file = agg_file()
       names = get_names()
-    
+      
       conf_index = grepl(names, pattern=".+(confidence)$")
       conf_columns = file[,conf_index]
       new_file = file[conf_columns < .4,]
       new_file
     }     
   })
-
+  
   output$displayLowUnits <- renderDataTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -569,7 +569,7 @@ shinyServer(function(input, output){
       output
     }
   })
-
+  
   build_report_card <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -582,54 +582,68 @@ shinyServer(function(input, output){
         responses = table(file[,names(file)==x])
         responses/sum(responses)
       })
-     
-      responses
+      
+      list(r=responses, n=names)
     }
   })
-
+  
   output$createReportCard <- renderText({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      table = build_report_card()
-      table = head(table)
-      html_table = "<table border=1>"
-      table = rbind(names(table), table)
-      for(i in 1:nrow(table)){
-        this_row = table[i,]
-        html_table = paste(html_table, '<tr>', sep="\n")
-        if (i == 1) {
-          for (value in this_row) {
-            html_table = paste(html_table, '<td>', sep="\n")
-            html_table = paste(html_table, paste("<b>", value, "</b>"),
-                               sep="\n")
-            html_table = paste(html_table, '</td>', sep="\n")
-          }
-        } else {
-          for (value_id in 1:length(this_row)) {
-            value = this_row[value_id]
-            html_table = paste(html_table, '<td>', sep="\n")
-            html_table = paste(html_table, value, "&nbsp;&nbsp;", sep="\n")
-            html_table = paste(html_table, '</td>', sep="\n")
-          }
+      inp =  build_report_card()
+      report_list =inp$r
+      print(report_list)
+      question_names=inp$n
+      output = paste("<html>")
+      for(i in 1:length(report_list)){
+        
+        header = question_names[i]
+        output = paste(output, "<h4>", header, "</h4>", sep="")
+        item = names(report_list[[i]])
+        num_item = length(item)
+        answer = report_list[[i]]
+        output = paste(output, "<table class=\"table table-bordered table-condensed table-striped\">", sep="")
+        output = paste(output, "<tr>", sep="") # open names row
+        
+        if(num_item > 6){
+          num_item = 6
+          item[6] = "Other Non Empty Values"
+          answer[6] = sum(answer[6:length(item)])
         }
-        html_table = paste(html_table, '</tr>', sep="\n")
-      } 
-      html_table = paste(html_table,"</table>", sep="\n")
-      paste(html_table)
+        
+        for (j in 1:num_item){
+          if(item[j] == ""){
+            item[j] = "\"\""
+          }
+          output = paste(output, "<td>", item[j], "</td>", sep ="")
+        }
+        output = paste(output, "</tr>", sep="") # close names row
+        
+        output = paste(output, "<tr>", sep="") # open values row
+        for (j in 1:num_item){
+          answer[j] = round(answer[j], digits=2)
+          output = paste(output, "<td>", answer[j], "</td>", sep ="")
+        }
+        output = paste(output, "</tr>", sep="") # close the values row
+        output = paste(output, "</table>", sep="")
+        output = paste(output, "<hr>", sep="")
+      }
+      output = paste(output,"</html>", sep="")
+      paste(output)
     }
   })
   
-   output$downloadOutput <- downloadHandler(
-     
-     filename = function() { paste(input$download_name, '.csv', sep='') },
-     content = function(file) {
-       df=col_rename()
-       write.csv(df, paste(file,sep=''), row.names=F, na="")
-     }
-   )
-
+  output$downloadOutput <- downloadHandler(
+    
+    filename = function() { paste(input$download_name, '.csv', sep='') },
+    content = function(file) {
+      df=col_rename()
+      write.csv(df, paste(file,sep=''), row.names=F, na="")
+    }
+  )
+  
   output$originalFileTabTable <- renderDataTable({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -639,6 +653,6 @@ shinyServer(function(input, output){
       table
     }
   })
-
+  
 })
 
