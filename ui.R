@@ -58,8 +58,13 @@ shinyUI(pageWithSidebar(
                             textInput("download_name", "Name for the output file (uft-8 without the .csv)", "output"),
                             br(),
                             downloadButton('downloadOutput', 'Download Built File'),
+                            h4("***"),
                             br(),
-                            htmlOutput("createReportCard")
+                            uiOutput("selectReportCardCols"),
+                            actionButton("get_report", "Generate Report?"),
+                            htmlOutput("createReportCard"),
+                            br(),
+                            downloadButton('downloadReport', 'Download Report Card')
                             ),
                    tabPanel("View Low Confidence Units",
                             dataTableOutput("displayLowUnits"))

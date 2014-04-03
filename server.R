@@ -12,7 +12,6 @@ require('stringr')
 require('reshape2')
 
 source('proper_case.R')
-source('rename_columns.R')
 source('reorder_columns.R')
 source('create_hash_key.R')
 
@@ -35,6 +34,9 @@ shinyServer(function(input, output){
       agg = agg_file()
       num_gold_units = length(unique(agg$X_unit_id[agg$X_golden=='true']))
       num_nongold_units = length(unique(agg$X_unit_id)) - num_gold_units
+      if(num_nongold_units == 0){
+        num_nongold_units = nrow(agg)
+      }
       cols = names(agg)
       num_cols = length(cols)
       cols_list = list(cols)
@@ -47,7 +49,7 @@ shinyServer(function(input, output){
       
       overall_message = paste("<p>The report you uploaded has:<br>",
                               num_gold_units, " gold units,<br>",
-                              num_nongold_units, " ordinary units<br>",
+                              num_nongold_units, " ordinary units,<br>",
                               num_cols, " column headers.<br>",
                               "</p>", sep="")
       paste(overall_message, column_names, column_warning, sep="<br>")
@@ -570,13 +572,31 @@ shinyServer(function(input, output){
     }
   })
   
-  build_report_card <- reactive({
+  output$selectReportCardCols <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
-      file = agg_file()
-      names = get_cml_names()
+      columns = col_rename()
+      columns = names(columns)
+      
+      selectInput("report_cols_chosen",
+                  "Select the columns we should use to generate the report card.",
+                  choices = columns,
+                  multiple=TRUE,
+                  selected = columns,
+                  selectize = TRUE)
+      
+    } 
+  })
+  
+  build_report_card <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_report == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      file = col_rename()
+      names = input$report_cols_chosen
       
       responses = lapply(names, function(x) {
         responses = table(file[,names(file)==x])
@@ -588,13 +608,13 @@ shinyServer(function(input, output){
   })
   
   output$createReportCard <- renderText({
-    if (is.null(input$files[1]) || is.na(input$files[1])) {
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_report == 0) {
       # User has not uploaded a file yet
       return(NULL)
     } else {
       inp =  build_report_card()
       report_list =inp$r
-      print(report_list)
+      
       question_names=inp$n
       output = paste("<html>")
       for(i in 1:length(report_list)){
@@ -635,11 +655,63 @@ shinyServer(function(input, output){
     }
   })
   
+  build_report_card_csv <- reactive({
+    if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_report == 0) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      inp =  build_report_card()
+      report_list =inp$r
+      question_names=inp$n
+      output=paste("start of form")
+      for(i in 1:length(report_list)){
+        header = question_names[i]
+        output_1 = paste(header, "_answer", sep="")
+        output_2 = paste(header, "_value", sep="")
+        outputs = paste(output_1, output_2, sep=",")
+        output = paste(output, outputs, sep="\n")
+      
+        item = names(report_list[[i]])
+        num_item = length(item)
+        answer = report_list[[i]]
+      
+        if(num_item > 6){
+          num_item = 6
+          item[6] = "Other Non Empty Values"
+          answer[6] = sum(answer[6:length(item)])
+        }
+      
+        for (j in 1:num_item){
+          if(item[j] == ""){
+            item[j] = "no answer"
+          }
+          answer[j] = round(answer[j], digits=2)
+          
+          output_rows = paste(item[j], answer[j], sep =",")
+          output=paste(output, output_rows, sep="\n")
+        }
+       ouput = paste(output, sep="\n")
+       #print(output)
+      }
+      output
+    }
+  })
+  
   output$downloadOutput <- downloadHandler(
     
     filename = function() { paste(input$download_name, '.csv', sep='') },
     content = function(file) {
       df=col_rename()
+      write.csv(df, paste(file,sep=''), row.names=F, na="")
+    }
+  )
+  
+  
+  output$downloadReport <- downloadHandler(
+    
+    filename = function() { paste('reportcard', '.csv', sep='') },
+    content = function(file) {
+      df=build_report_card_csv()
       write.csv(df, paste(file,sep=''), row.names=F, na="")
     }
   )
