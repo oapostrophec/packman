@@ -84,11 +84,12 @@ shinyUI(pageWithSidebar(
                  tags$style(type="text/css", ".data { overflow: scroll; }")
                  ),
         tabPanel("Logic Aware Aggregation",
-                 fileInput("files", h4("Full reportto aggregate:"), multiple=FALSE),
+                 fileInput("files_logic", h4("Upload your FULL report here:"), multiple=FALSE),
                  h4(textOutput("sample_skip_text")),
                  h4("If the lines above turned grey, your file is being processed.
                  You can download your file when it's done."),
-                 downloadButton('downloadAgg', 'Download Golds as Gold Report')
+                 h4(textOutput("logic_agg_ready")),
+                 downloadButton('downloadAgg', 'Download your Logic-Aware Agg report!')
                  )
     ) #close overall tabset
   ) #close mainPanel

@@ -664,17 +664,17 @@ shinyServer(function(input, output){
   })
     
     full_report <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
-            report = read.csv(input$files$datapath, na.strings="NaN", stringsAsFactors=FALSE)
+            report = read.csv(input$files_logic$datapath, na.strings="NaN", stringsAsFactors=FALSE)
             report
         }
     })
     
     get_start_with_full <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
@@ -691,11 +691,11 @@ shinyServer(function(input, output){
     })
     
     job_id <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
-            inFile <- input$files$name
+            inFile <- input$files_logic$name
             job_id = gsub(inFile, pattern="^f", replacement="")
             job_id = str_extract(job_id, "\\d{6}")
             return(job_id)
@@ -703,7 +703,7 @@ shinyServer(function(input, output){
     })
     
     job_cml <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
@@ -714,7 +714,7 @@ shinyServer(function(input, output){
     })
     
     transform_dependencies <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
@@ -731,7 +731,7 @@ shinyServer(function(input, output){
     })
     
     logic_aware_reaggregate <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
@@ -747,7 +747,7 @@ shinyServer(function(input, output){
     })
     
     logic_aware_unique  <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
@@ -769,7 +769,7 @@ shinyServer(function(input, output){
     })
     
     dropped_rows_count <- reactive({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             return(NULL)
         } else {
@@ -781,7 +781,7 @@ shinyServer(function(input, output){
     })
     
     output$downloadAgg <- downloadHandler(
-    filename = function() { paste(gsub(input$files$name, pattern="\\.csv", replacement=""),
+    filename = function() { paste(gsub(input$files_logic$name, pattern="\\.csv", replacement=""),
         '_logic_aware.csv', sep='') },
     content = function(file) {
         df=logic_aware_unique()
@@ -795,7 +795,7 @@ shinyServer(function(input, output){
     )
     
     output$sample_skip_text <- renderText({
-        if (is.null(input$files)) {
+        if (is.null(input$files_logic)) {
             # User has not uploaded a file yet
             paste("\"Logic aware aggregation\" is about choosing which judgments to aggregate,
             and which to leave out because they do not match logic. In order to make this work, we find
@@ -806,9 +806,21 @@ shinyServer(function(input, output){
             and which to leave out because they do not match logic. 
             This means that some jusgments will not be used to obtain answers to some questions. 
             In this case, the question with the deepest logic got", dropped_rows_count(),
-            "less judgments than the top level ones.")
+            "less judgments than the top level ones.\n
+            Confidences will be recalculated based on the number of people whose judgments went into
+             aggregation on a particular question. Confidence columns will be appended at the 
+            end of the csv.")
         }
     })
+  
+  output$logic_agg_ready<- renderText({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      paste("YOUR FILE IS READY. HURRAY!")
+    }
+  })
   
 })
 
