@@ -84,7 +84,8 @@ shinyUI(pageWithSidebar(
                  tags$style(type="text/css", ".data { overflow: scroll; }")
                  ),
         tabPanel("Logic Aware Aggregation",
-                 fileInput("files_logic", h4("Upload your FULL report here:"), multiple=FALSE),
+                 fileInput("files_logic", h4("Upload your FULL report here (required):"), multiple=FALSE),
+                 textInput("job_id_logic", h4("Add a job id if it's not contained in the name of the file (optional):"), 0),
                  h4(textOutput("sample_skip_text")),
                  h4("If the lines above turned grey, your file is being processed.
                  You can download your file when it's done."),
