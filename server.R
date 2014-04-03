@@ -35,6 +35,20 @@ shinyServer(function(input, output){
     paste(html_image)
   })
   
+  output$appMessage <-renderText({
+    new_app_message = paste("<div class=\"alert alert-block\"><p>Hello There! This app is brand new
+                            and is meant to help you with packaging. There's a lot of things that go into 
+                            packaging, some of which we may have missed. Feel free to reach out to the the Best
+                            Practices team with questions and comments (bpt@crowdflower.com)</p>
+                            <h5>Outstanding:</h5>
+                            <ul><li>Adding a find and replace function</li>
+                                <li>Better Dedupe messaging</li>
+                                <li>Better report card download</li></ul>
+                            </div>")
+    
+    
+  })
+  
   output$summaryMessage <- renderText({
     if ((is.null(input$files[1]) || is.na(input$files[1])) && input$job_id==0) {
       # User has not uploaded a file yet
@@ -170,7 +184,27 @@ shinyServer(function(input, output){
   })
   
   ##Step 1 - Reorder and Drop Columns
-  ##Selector Outputs
+  ##Tab Description/Instruction
+  output$reorderTabDesc <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      message = paste("<p>This tab allows you to drop and reorder the column headers as you like. 
+                      We've prepopulated the box with the headers <em>we think</em> 
+                      you want but you can include any from the file.
+                      Just begin by typing it in the box and press enter when
+                      the one you want populates in the search. 
+                       Remove a column by selecting it and pressing
+                      delete. Use the left and right arrow keys to move 
+                      the cursor to the spot you wish to populate a column.
+                      Once you have the file how you like it press the Submit? button to move on to step 2.</p>")
+      message
+    
+    }
+  })
+  
+  ##Selector Output(s)
   output$columnSelector <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
       # User has not uploaded a file yet
@@ -209,6 +243,25 @@ shinyServer(function(input, output){
   })
   
   ##Step 2 - Data Clean
+  ##Tab Description/Instruction
+  output$dataCleanTabDesc <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      message = paste("<p>Choose which columns you would like to be proper cased (i.e. instead of
+                      HELLO WORLD or hello world, it outputs Hello World.) Similar to the previous
+                      tab begin typing the column name in the search box until the one you want
+                      is highlighted then press enter to select that column. Once you have the file
+                      casing as you want it make sure to submit your changes</p><p><b>Do NOTE:</b>
+                      these operations are very expensive (the functions will travel through an entire 
+                      column) so it may take awhile before a table is returned. If the table under 
+                      Output File Viewer is greyed out, sit tight, the app is still working.</p>")
+      message
+      
+    }
+  })
+  
   ##Selector Outputs
   output$rowProperCase <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_reorder == 0) {
@@ -258,7 +311,24 @@ shinyServer(function(input, output){
     }
   })
   
-  ##Step 3 - Dedupe rows
+##Step 3 - Dedupe rows
+  ##Tab Description/Instruction
+  output$rowDedupeTabDesc <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      message = paste("<p>If you've combined multiple files or reprocessed a unit this tab
+                      is meant to help you consolidate those duplicates. The textbox here is asking
+                      for a set of unique identifier columns (usually from the source) to create
+                      keys to compare units. If the prepopulated columns would not make good keys
+                      please edit them and press submit. The final file will populate under Output
+                      File Viewer.</p>")
+      message
+      
+    }
+  })
+
   ##Selector Outputs
   output$rowDedupeKey <- renderUI({
     if (is.null(input$files[1]) || is.na(input$files[1])) {
@@ -308,6 +378,26 @@ shinyServer(function(input, output){
   })
   
   ###Step 4
+  ##Tab Description/Instruction
+  output$renameTabDesc <- renderText({
+    if (is.null(input$files[1]) || is.na(input$files[1])) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      message = paste("<p>The table below gives the current column names and a box to enter a 
+                      new name. You are not required to enter a new name. Only enter names for the 
+                      headers you wish to update. Press submit when the names are as you want; you
+                      will see the updated names populate in the left column of the table.</p>
+                      <p><b>Do Note:</b> The names you chose here finalize the header names. You 
+                      will be unable to change them once you press submit so make sure they are
+                      exactly as you'd like. You can view the final file (with the new names) under 
+                      the next tab, View Built File.</p>")
+      message
+    
+    }
+  })
+  
+  #this function populates the inputs as well as updates the file.
   col_rename <- reactive({
     if (is.null(input$files[1]) || is.na(input$files[1]) || input$get_dedupe == 0) {
       # User has not uploaded a file yet
