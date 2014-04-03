@@ -19,7 +19,7 @@ options(stringsAsFactors=F)
 auth_key = "5b7d73e5e7eb06556f12b45f87b013fc419f45f2"
 
 source('proper_case.R')
-source('rename_columns.R')
+# source('rename_columns.R')
 source('reorder_columns.R')
 source('create_hash_key.R')
 source('get_dependencies_from_job.R')
