@@ -59,6 +59,9 @@ shinyUI(pageWithSidebar(
                             br(),
                             downloadButton('downloadOutput', 'Download Built File'),
                             br(),
+                            hr(),
+                            br(),
+                            p("Summary of answer distributions (copy and paste in email or do your own formatting):"),
                             htmlOutput("createReportCard")
                             ),
                    tabPanel("View Low Confidence Units",

@@ -1,5 +1,6 @@
 #############  make logic from cml: logic_df
 library('plyr')
+auth_key = "5b7d73e5e7eb06556f12b45f87b013fc419f45f2"
 
 get_true_dependencies <- function(logic_df) {
   true_dependencies = list()

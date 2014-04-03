@@ -7,6 +7,8 @@
 # draft_df = get_depenencies_from_cml(cml)
 # logic_df = make_logic_df(draft_df)
 
+auth_key = "5b7d73e5e7eb06556f12b45f87b013fc419f45f2"
+
 possible_elements_parent = c("textarea", "text", 
                              "checkbox", "checkboxes","radios",
                              "select",
