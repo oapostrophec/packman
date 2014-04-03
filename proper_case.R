@@ -10,10 +10,12 @@ toproper <- function(x) {
 
 
 proper_case <- function(file, cols){
+  # cols is a character vector, subsetting needs to be done with a number
     for(j in 1:length(cols)){
+      column_name = cols[j]
+      column = which(names(file) == column_name)
         for(i in 1:nrow(file)){
             row = i
-            column = cols[j]
             file[row, column] = toproper(as.character(file[row, column]))
         }
     }
