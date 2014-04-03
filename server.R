@@ -10,10 +10,19 @@ require('plyr')
 require('devtools')
 require('stringr')
 require('reshape2')
+require('stringr')
+library('XML')
+library('rjson')
+
+
+auth_key = "5b7d73e5e7eb06556f12b45f87b013fc419f45f2"
 
 source('proper_case.R')
+# source('rename_columns.R')
 source('reorder_columns.R')
 source('create_hash_key.R')
+source('get_dependencies_from_job.R')
+source('more_functions_for_logic_awareness.R')
 
 options(stringsAsFactors = F)
 options(shiny.maxRequestSize=150*1024^2)
@@ -242,10 +251,8 @@ shinyServer(function(input, output){
     } else {
       change_file = col_reorder_drop()
       proper_input = input$propers_chosen
-      
       if(!(is.null(proper_input))){
         change_file = proper_case(change_file, proper_input)
-        change_file
       }  
       change_file
     }
@@ -345,9 +352,13 @@ shinyServer(function(input, output){
       # User has not uploaded a file yet
       return(NULL)
     } else {
+      print("input$get_reorder")
+      print(input$get_reorder)
       if(input$get_reorder != 0){
+        print("I am here in line 358")
         output = row_proper_case()
         if (nrow(output) > 15){
+          print("and now in 361")
           max_count = min(15, nrow(output))
           output = output[1:max_count,]
         }
@@ -494,6 +505,7 @@ shinyServer(function(input, output){
       agg_names = names(agg_file)
       
       key_names = intersect(source_names, agg_names)
+      print(key_names)
       
       if (!is.null(key_names)){
         source_file$source_hash = create_hash_key(source_file, key_names)
@@ -530,7 +542,7 @@ shinyServer(function(input, output){
                         "<br> Agg File:", agg_file, "</big></div>", sep=" ")
       }
       
-      if(missing != 0){
+      if(missing != 0) {
         message = paste("<div class=\"alerts alert-info\"><big>There are ", source_file, "total units in the source file.
                         The agg file contains", agg_file, "total units. There are", missing,
                         "units unaccounted for.</big></div>", sep=" ")
@@ -723,6 +735,177 @@ shinyServer(function(input, output){
     } else {
       table = agg_file()
       table
+    }
+  })
+  
+  full_report <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      report = read.csv(input$files_logic$datapath, na.strings="NaN", stringsAsFactors=FALSE)
+      report
+    }
+  })
+  
+  get_start_with_full <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      start_with_full = full_report()
+      if ("X_golden" %in% names(start_with_full)) {
+        start_with_full = start_with_full[start_with_full$X_golden != "true",]
+      } else {
+        start_with_full$X_golden = ""
+      }
+      # drop tainted judgments before you go there
+      if ("X_tainted" %in% names(start_with_full)) {
+        start_with_full = start_with_full[start_with_full$X_tainted != "true",]
+      } else {
+        start_with_full$X_tainted = "false"
+      }
+      start_with_full
+    }
+  })
+  
+  job_id <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      if (input$job_id_logic == 0) {
+        inFile <- input$files_logic$name
+        job_id = gsub(inFile, pattern="^f", replacement="")
+        job_id = str_extract(job_id, "\\d{6}")
+      } else {
+        job_id = input$job_id_logic
+      }
+      if (is.na(job_id)) {
+        stop("Looks like the name of your file does not hint at the job id. 
+             Please provide the job id in the text box above.")
+      }
+      return(job_id)
+    }
+  })
+  
+  job_cml <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      job_id = job_id()
+      cml = get_cml_from_job(job_id)
+      return(cml)
+    }
+  })
+  
+  transform_dependencies <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      cml = job_cml()
+      draft_df = get_depenencies_from_cml(cml)
+      logic_df = make_logic_df(draft_df)
+      logic_df$depends_on = gsub(logic_df$depends_on, pattern="!", replacement="")
+      true_dependencies = get_true_dependencies(logic_df)
+      ordered_tds = get_ordered_tds(true_dependencies)
+      list(logic_df = logic_df,
+           ordered_tds = ordered_tds,
+           true_dependencies = true_dependencies)
+    }
+  })
+  
+  logic_aware_reaggregate <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      start_with_full = get_start_with_full()
+      dep_list = transform_dependencies()
+      logic_df = dep_list$logic_df
+      ordered_tds = dep_list$ordered_tds
+      true_dependencies = dep_list$true_dependencies
+      for_aggregation = add_confidence_columns(start_with_full, logic_df)
+      new_df = perform_chain_aggregations(for_aggregation, ordered_tds, true_dependencies)
+      return(new_df)
+    }
+  })
+  
+  logic_aware_unique  <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      new_df = logic_aware_reaggregate()
+      new_df = new_df[!duplicated(new_df$X_unit_id),]
+      new_df$X_created_at = NULL
+      new_df$X_id = NULL
+      new_df$X_started_at = NULL
+      new_df$X_tainted = NULL
+      new_df$X_channel = NULL
+      new_df$X_trust = NULL
+      new_df$X_worker_id = NULL
+      new_df$X_country = NULL
+      new_df$X_region = NULL
+      new_df$X_city	= NULL
+      new_df$X_ip = NULL
+      new_df
+    }
+  })
+  
+  dropped_rows_count <- reactive({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      start_with_full = get_start_with_full()
+      new_df = logic_aware_reaggregate()
+      number_of_dropped_judgments = nrow(start_with_full) - nrow(new_df) # display how many judgments are not used in aggregates
+      number_of_dropped_judgments
+    }
+  })
+  
+  output$downloadAgg <- downloadHandler(
+    filename = function() { paste(gsub(input$files_logic$name, pattern="\\.csv", replacement=""),
+                                  '_logic_aware.csv', sep='') },
+    content = function(file) {
+      df=logic_aware_unique()
+      if (nrow(df) == 0) {
+        return(NULL)
+      } else {
+        print(head(df))
+      }
+      write.csv(df, paste(file,sep=''), row.names=F, na="")
+    }
+  )
+  
+  output$sample_skip_text <- renderText({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      paste("\"Logic aware aggregation\" is about choosing which judgments to aggregate,
+            and which to leave out because they do not match logic. In order to make this work, we find
+            all logical dependencies present in your cml and aggregate each unit according to corrent logical order.
+            The latter operation is time consuming, the wait can be 1 minute to 20 mins.")
+    } else {
+      paste("\"Logic aware aggregation\" is about choosing which judgments to aggregate, 
+            and which to leave out because they do not match logic. 
+            This means that some jusgments will not be used to obtain answers to some questions. 
+            In this case, the question with the deepest logic got", dropped_rows_count(),
+            "less judgments than the top level ones.\n
+            Confidences will be recalculated based on the number of people whose judgments went into
+             aggregation on a particular question. Confidence columns will be appended at the 
+            end of the csv.")
+    }
+  })
+  
+  output$logic_agg_ready<- renderText({
+    if (is.null(input$files_logic)) {
+      # User has not uploaded a file yet
+      return(NULL)
+    } else {
+      paste("YOUR FILE IS READY. HURRAY!")
     }
   })
   
