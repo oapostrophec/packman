@@ -14,7 +14,7 @@ proper_case <- function(file, cols){
         for(i in 1:nrow(file)){
             row = i
             column = cols[j]
-            file[row, column] = toproper(file[row, column])
+            file[row, column] = toproper(as.character(file[row, column]))
         }
     }
     return(file)
